@@ -1,0 +1,3 @@
+gpxpy
+plotly
+streamlit
