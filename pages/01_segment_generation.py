@@ -1,35 +1,47 @@
 """xxx"""
 
-import io
-
-import pandas as pd
 import streamlit as st
 
 from src.generate_segments import create_segments_dataframe, generate_segments
 from src.plotting import plot_map, plot_segments
+from src.utils import excel_download_button, set_page_config
 
-st.set_page_config(
-    page_title="Team Visma | Lease a Bike Segment Analytics",
-    page_icon="🚴‍♂️",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+set_page_config()
+
+st.markdown("# Segment Generation")
+
+# Get or set variables
+if "df" in st.session_state:
+    df = st.session_state.df
+else:
+    st.warning("Error: start analysis from stage selection", icon="⚠️")
+
+if "selected_stage" in st.session_state:
+    selected_stage = st.session_state.selected_stage
+
+if "window_size_km" in st.session_state:
+    window_size_km = st.session_state.window_size_km
+else:
+    window_size_km = 2.0
+
+if "min_slope_diff" in st.session_state:
+    min_slope_diff = st.session_state.min_slope_diff
+else:
+    min_slope_diff = 1.5
 
 # Define sidebar
 with st.sidebar:
     st.header("⚙️ Segment model parameters", divider="grey")
-    window_size_km = st.number_input("Minimum segment length (km)", value=2.0, step=0.1)
+    window_size_km = st.number_input(
+        "Minimum segment length (km)", value=window_size_km, step=0.1
+    )
     min_slope_diff = st.number_input(
-        "Minimum slope difference (%)", value=1.5, step=0.1
+        "Minimum slope difference (%)", value=min_slope_diff, step=0.1
     )
     st.image(
         "assets/logo.png",
         use_column_width=True,
     )
-
-# Load data from session state
-df = st.session_state.df
-selected_stage = st.session_state.selected_stage
 
 # Generate segments
 segments = generate_segments(
@@ -66,18 +78,14 @@ st.caption(f"💾 Dataframe with {len(segments_df)} generated segments")
 st.dataframe(segments_df, use_container_width=True)
 
 # Download button for dataframe
-output = io.BytesIO()
-writer = pd.ExcelWriter(output, engine="xlsxwriter")
-segments_df.to_excel(writer, index=False)
-writer.close()
-output.seek(0)
-st.download_button(
-    label="Download Excel file",
-    data=output,
-    file_name=f"stage_{selected_stage}_generated_segments.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+excel_download_button(
+    df=segments_df,
+    label="Download segments",
+    filename=f"stage_{selected_stage}_segments",
 )
 
 # Save data to session state
+st.session_state.window_size_km = window_size_km
+st.session_state.min_slope_diff = min_slope_diff
 st.session_state.segments = segments
 st.session_state.segments_df = segments_df

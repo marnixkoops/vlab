@@ -1,3 +1,2 @@
 gpxpy
-plotly
-streamlit
+scipy

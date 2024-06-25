@@ -3,6 +3,7 @@
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objs as go
+from plotly.subplots import make_subplots
 
 
 # Plot map
@@ -159,7 +160,152 @@ def plot_segments(df: pd.DataFrame, segments: list) -> go.Figure:
         showlegend=False,
         xaxis=dict(
             rangeslider=dict(visible=False),
+            range=[0, df["distance"].max()],  # Ensure x-axis starts at 0
         ),
+    )
+
+    return fig
+
+
+def plot_glycogen(df: pd.DataFrame) -> go.Figure:
+    """Plot KPI profile with fatigue and failure thresholds.
+
+    Args:
+        df: Dataframe with gpx data.
+
+    Returns:
+        Figure: Plotly figure with KPI visualization.
+    """
+    fig = go.Figure()
+
+    # KPI plot
+    fig.add_trace(
+        go.Scatter(
+            x=df["start point (km)"],
+            y=df["glycogen level (%)"],
+            mode="lines",
+            name="glycogen level (%)",
+            line_color="#1f77b4",
+            line_width=2,
+        )
+    )
+
+    # Add horizontal lines for fatigue and failure thresholds
+    fig.add_trace(
+        go.Scatter(
+            x=[df["start point (km)"].min(), df["end point (km)"].max()],
+            y=[35, 35],
+            mode="lines",
+            line=dict(color="orange", width=2, dash="dash"),
+            showlegend=True,
+            name="Fatigue Threshold",
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=[df["start point (km)"].min(), df["end point (km)"].max()],
+            y=[10, 10],
+            mode="lines",
+            line=dict(color="red", width=2, dash="dash"),
+            showlegend=True,
+            name="Failure Threshold",
+        )
+    )
+
+    return fig
+
+
+def plot_elevation_only(df: pd.DataFrame) -> go.Scatter:
+    """Create a transparent elevation trace for overlay.
+
+    Args:
+        df: Dataframe with gpx data.
+
+    Returns:
+        Scatter: Plotly scatter trace with elevation visualization.
+    """
+    return go.Scatter(
+        x=df["distance"],
+        y=df["elevation"],
+        mode="lines",
+        name="elevation",
+        line_color="rgba(255, 225, 3, 0.2)",  # Make the line more transparent
+        line_width=2,
+        fill="tozeroy",
+        fillcolor="rgba(255, 225, 3, 0.05)",  # Transparent fill color
+        showlegend=False,  # Hide from legend
+    )
+
+
+def combine_plots(
+    df: pd.DataFrame, segments: list, segments_df: pd.DataFrame
+) -> go.Figure:
+    """Combine elevation and glycogen plots into one figure with transparent background for the elevation plot.
+
+    Args:
+        df: Dataframe with elevation data.
+        segments: List of segments for elevation data.
+        segments_df: Dataframe with glycogen data.
+
+    Returns:
+        Figure: Plotly figure with combined visualization.
+    """
+    """Combine elevation and glycogen plots into one figure with transparent background for the elevation plot.
+
+    Args:
+        df_segments: Dataframe with elevation data.
+        segments: List of segments for elevation data.
+        df_glycogen: Dataframe with glycogen data.
+
+    Returns:
+        Figure: Plotly figure with combined visualization.
+    """
+    elevation_trace = plot_elevation_only(df)
+    glycogen_fig = plot_glycogen(segments_df)
+
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+    # Add glycogen trace
+    for trace in glycogen_fig["data"]:
+        fig.add_trace(trace, secondary_y=False)
+
+    # Add elevation trace
+    fig.add_trace(elevation_trace, secondary_y=True)
+
+    # Add vertical segment separation lines
+    for segment in segments:
+        start_idx = segment["start_idx"]
+        x_value = df["distance"].iloc[start_idx]
+        y_value = df["elevation"].iloc[start_idx]
+        fig.add_shape(
+            type="line",
+            x0=x_value,
+            x1=x_value,
+            y0=0,
+            y1=y_value,
+            yref="y2",
+            line=dict(color="rgba(255, 255, 255, 0.4)", width=1, dash="dot"),
+        )
+
+    fig.update_layout(
+        title="🏔️ Glycogen Depletion with Fatigue and Failure Thresholds",
+        xaxis_title="distance (km)",
+        yaxis=dict(
+            title="glycogen level (%)", side="left", range=[0, 100]
+        ),  # Ensure y-axis starts at 0
+        yaxis2=dict(
+            title="elevation (m)",
+            side="right",
+            overlaying="y",
+            range=[0, df["elevation"].max()],
+            showgrid=False,
+            showticklabels=True,
+        ),  # Ensure y-axis starts at 0
+        xaxis=dict(range=[0, df["distance"].max()]),  # Ensure x-axis starts at 0
+        template="plotly_dark",
+        height=800,
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
 
     return fig

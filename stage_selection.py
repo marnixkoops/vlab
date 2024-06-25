@@ -4,14 +4,9 @@ import gpxpy
 import streamlit as st
 
 from src.process_data import create_dataframe, read_gpx_file
-from src.utils import get_session_state
+from src.utils import get_session_state, set_page_config
 
-st.set_page_config(
-    page_title="Team Visma | Lease a Bike Analytics",
-    page_icon="🚴‍♂️",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+set_page_config()
 
 # Define sidebar
 with st.sidebar:
@@ -20,8 +15,8 @@ with st.sidebar:
         use_column_width=True,
     )
 
+# Get or set variables
 session_state = get_session_state()
-
 if "selected_stage" in st.session_state:
     selected_stage = st.session_state.selected_stage
     selected_index = int(selected_stage.split("-")[1]) - 1

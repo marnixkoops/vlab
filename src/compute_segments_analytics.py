@@ -24,11 +24,11 @@ def define_drafting_decisions(segments, semi_draft_point=0.6, full_draft_point=0
 
     for i in range(num_segments):
         if i < semi_draft_segment:
-            segments.loc[i, "drafting"] = "Full Draft"
+            segments.loc[i, "drafting"] = "full"
         elif i < full_draft_segment:
-            segments.loc[i, "drafting"] = "Semi Draft"
+            segments.loc[i, "drafting"] = "semi"
         else:
-            segments.loc[i, "drafting"] = "No Draft"
+            segments.loc[i, "drafting"] = "none"
 
     return segments, semi_draft_segment, full_draft_segment
 
@@ -150,15 +150,11 @@ def calculate_climbing_duration(
         return "Please specify either time in seconds or relative power, not both."
 
 
-def apply_descending_duration(row, average_speed):
-    return row["segment distance (km)"] * 3600 / average_speed
-
-
 def apply_climbing_duration(row, rider_stats):
     # Define the logic for the negative elevation gain
     return calculate_climbing_duration(
         time_sec=None,
-        relative_power=row["relative power"],
+        relative_power=row["relative power (w/kg)"],
         length_segment_km=row["segment distance (km)"],
         elevation_gain_m=abs(row["end elevation (m)"] - row["start elevation (m)"]),
         rider=rider_stats,
@@ -166,11 +162,21 @@ def apply_climbing_duration(row, rider_stats):
     )
 
 
-def apply_duration(row, rider_stats, average_speed=50):
-    if row["end elevation (m)"] >= row["start elevation (m)"]:
+def apply_descending_duration(row, average_speed_down):
+    return row["segment distance (km)"] * 3600 / average_speed_down
+
+
+def apply_flat_duration(row, average_speed_flat):
+    return row["segment distance (km)"] * 3600 / average_speed_flat
+
+
+def apply_duration(row, rider_stats, average_speed_down=60, average_speed_flat=45):
+    if row["average slope (%)"] > 2:
         return apply_climbing_duration(row, rider_stats)
+    elif row["average slope (%)"] < -2:
+        return apply_descending_duration(row, average_speed_down)
     else:
-        return apply_descending_duration(row, average_speed)
+        return apply_flat_duration(row, average_speed_flat)
 
 
 def compute_glycogen_level(segments, glycogen_start_level=100):
@@ -184,10 +190,21 @@ def compute_glycogen_level(segments, glycogen_start_level=100):
             new_value = previous_value
         else:
             new_value = (
-                previous_value * row["relative power"] / 6
+                previous_value * row["relative power (w/kg)"] / 6
             )  # Example function: summing previous value and parameter
         new_column.append(new_value)
         previous_value = new_value
 
     segments["glycogen level (%)"] = new_column
     return segments
+
+
+def apply_relative_power(
+    row, relative_power_climb=5.5, relative_power_descend=1.5, relative_power_flat=3
+):
+    if row["average slope (%)"] > 2:
+        return relative_power_climb
+    elif row["average slope (%)"] < -2:
+        return relative_power_descend
+    else:
+        return relative_power_flat
